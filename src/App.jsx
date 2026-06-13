@@ -131,7 +131,7 @@ export default function App() {
           </TabsList>
 
           <TabsContent value="ranking" className="mt-3">
-            <RankingTable ranking={stats.ranking} />
+            <RankingTable ranking={stats.ranking} guesses={guesses} scores={scores} />
           </TabsContent>
 
           <TabsContent value="matches" className="mt-3">
