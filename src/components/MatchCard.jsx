@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { CalendarDays, MapPin, ChevronDown, Check, Eraser, Flame } from "lucide-react"
+import { CalendarDays, MapPin, ChevronDown, Check, Eraser, Flame, Copy, CopyCheck } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import GuessRow from "@/components/GuessRow"
-import { flag, formatMatchDate } from "@/data/matches"
+import { flag, formatMatchDate, getRound } from "@/data/matches"
 import { isValidScore, isValidGuess } from "@/lib/scoring"
 import { cn } from "@/lib/utils"
 
@@ -24,6 +24,37 @@ function TeamLabel({ team, align = "left" }) {
       <span className="truncate text-sm font-semibold">{team}</span>
     </div>
   )
+}
+
+function buildWhatsAppText(match) {
+  const hFlag = flag(match.home)
+  const aFlag = flag(match.away)
+  const round = getRound(match.date)
+
+  // Formata a data por extenso em pt-BR
+  const dateObj = new Date(`${match.date}T12:00:00`)
+  const dateLong = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  }).format(dateObj)
+
+  return [
+    `🏆 *Bolão da Copa 2026 – Rodada ${round}*`,
+    ``,
+    `⚽ *${hFlag} ${match.home}  x  ${match.away} ${aFlag}*`,
+    ``,
+    `📅 ${dateLong.charAt(0).toUpperCase() + dateLong.slice(1)}, ${match.time}`,
+    `📍 ${match.venue}`,
+    `🔵 Grupo ${match.group}`,
+    ``,
+    `*👇 Reaja a esta mensagem com:*`,
+    `1️⃣  → Vitória ${match.home}`,
+    `🤝  → Empate`,
+    `2️⃣  → Vitória ${match.away}`,
+    ``,
+    `_(Palpites só valem até o apito inicial!)_`,
+  ].join("\n")
 }
 
 export default function MatchCard({
@@ -42,6 +73,7 @@ export default function MatchCard({
     away: score?.away ?? "",
   })
   const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const guessCount = participants.filter((p) => isValidGuess(guesses?.[p])).length
 
@@ -62,6 +94,18 @@ export default function MatchCard({
     toast.info("Placar oficial removido — jogo voltou a ficar pendente.")
   }
 
+  const handleCopyWpp = async () => {
+    const text = buildWhatsAppText(match)
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      toast.success("Mensagem copiada! Cole no grupo do WhatsApp. 📲")
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      toast.error("Não foi possível copiar. Tente manualmente.")
+    }
+  }
+
   return (
     <Card
       className={cn(
@@ -70,7 +114,7 @@ export default function MatchCard({
       )}
     >
       <CardContent className="flex flex-col gap-3 px-4">
-        {/* Cabeçalho: grupo, status e data/local */}
+        {/* Cabeçalho: grupo, status, data e botão copiar */}
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="outline" className="border-primary/40 text-primary">
             Grupo {match.group}
@@ -83,11 +127,29 @@ export default function MatchCard({
           <Badge variant={finished ? "secondary" : "outline"} className="text-muted-foreground">
             {finished ? "Encerrado" : "Aguardando"}
           </Badge>
-          <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-            <CalendarDays className="size-3.5" />
-            {formatMatchDate(match.date)} · {match.time}
-          </span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-7 gap-1.5 border-dashed text-xs transition-colors",
+                copied
+                  ? "border-primary/60 text-primary"
+                  : "border-green-500/50 text-green-400 hover:border-green-500 hover:bg-green-500/10 hover:text-green-300"
+              )}
+              onClick={handleCopyWpp}
+            >
+              {copied ? <CopyCheck className="size-3.5" /> : <Copy className="size-3.5" />}
+              {copied ? "Copiado!" : "Copiar p/ WhatsApp"}
+            </Button>
+          </div>
         </div>
+
+        {/* Data / hora */}
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <CalendarDays className="size-3.5" />
+          {formatMatchDate(match.date)} · {match.time}
+        </span>
 
         {/* Placar */}
         <div className="flex items-center gap-2">
