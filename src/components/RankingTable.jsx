@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { CheckCircle2, XCircle, Clock } from "lucide-react"
+import { CheckCircle2, XCircle, Clock, Copy, CopyCheck } from "lucide-react"
+import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -8,6 +9,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -175,17 +177,72 @@ function ParticipantDialog({ name, guesses, scores, open, onClose }) {
   )
 }
 
+const MEDALS = ["🥇", "🥈", "🥉"]
+const APP_URL = "https://copabolao.vercel.app/"
+
+function buildRankingText(ranking) {
+  const now = new Date()
+  const date = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(now)
+
+  const lines = [
+    `🏆 *Bolão da Copa 2026* — ${date}`,
+    ``,
+  ]
+
+  ranking.forEach((row, i) => {
+    const medal = MEDALS[i] ?? `${i + 1}.`
+    const pts = `${row.points} ${row.points === 1 ? "ponto" : "pontos"}`
+    const pct = row.played > 0 ? ` (${row.pct}%)` : ""
+    lines.push(`${medal} ${row.name} — ${pts}${pct}`)
+  })
+
+  lines.push(``)
+  lines.push(`🔗 ${APP_URL}`)
+
+  return lines.join("\n")
+}
+
 export default function RankingTable({ ranking, guesses, scores }) {
   const [selected, setSelected] = useState(null)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    const text = buildRankingText(ranking)
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      toast.success("Classificação copiada! Cole no WhatsApp. 📲")
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      toast.error("Não foi possível copiar.")
+    }
+  }
 
   return (
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Classificação</CardTitle>
-          <CardDescription>
-            1 ponto por resultado correto · toque no nome para ver detalhes
-          </CardDescription>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle>Classificação</CardTitle>
+              <CardDescription>
+                1 ponto por resultado correto · toque no nome para ver detalhes
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopy}
+              className={`shrink-0 gap-1.5 border-dashed text-xs transition-colors ${
+                copied
+                  ? "border-primary/60 text-primary"
+                  : "border-green-500/50 text-green-400 hover:border-green-500 hover:bg-green-500/10 hover:text-green-300"
+              }`}
+            >
+              {copied ? <CopyCheck className="size-3.5" /> : <Copy className="size-3.5" />}
+              {copied ? "Copiado!" : "Copiar tabela"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
