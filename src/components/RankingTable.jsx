@@ -1,44 +1,23 @@
 import { useState } from "react"
-import { CheckCircle2, XCircle, Minus, Clock } from "lucide-react"
+import { CheckCircle2, XCircle, Clock } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
-import { MATCHES } from "@/data/matches"
-import { flag, formatMatchDate, getRound } from "@/data/matches"
+import { MATCHES, flag, formatMatchDate, getRound } from "@/data/matches"
 import { isValidScore, isValidGuess, guessStatus, outcomeLabel, OUTCOME_SHORT } from "@/lib/scoring"
-
-function StatusIcon({ status }) {
-  if (status === "hit")
-    return <CheckCircle2 className="size-4 shrink-0 text-primary" />
-  if (status === "miss")
-    return <XCircle className="size-4 shrink-0 text-destructive" />
-  if (status === "pending")
-    return <Clock className="size-4 shrink-0 text-muted-foreground/60" />
-  return <Minus className="size-4 shrink-0 text-muted-foreground/40" />
-}
 
 function ParticipantDialog({ name, guesses, scores, open, onClose }) {
   if (!name) return null
 
-  // Jogos onde o participante tem palpite, separados por status
   const withGuess = MATCHES.filter((m) => isValidGuess(guesses[m.id]?.[name]))
   const finished = withGuess.filter((m) => isValidScore(scores[m.id]))
   const pending = withGuess.filter((m) => !isValidScore(scores[m.id]))
@@ -47,152 +26,145 @@ function ParticipantDialog({ name, guesses, scores, open, onClose }) {
     (m) => guessStatus(guesses[m.id]?.[name], scores[m.id]) === "hit"
   ).length
   const misses = finished.length - hits
+  const pct = finished.length > 0 ? Math.round((hits / finished.length) * 100) : 0
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[92dvh] w-[calc(100%-2rem)] max-w-md flex-col gap-0 overflow-hidden rounded-2xl p-0">
+
+        {/* Cabeçalho fixo */}
+        <DialogHeader className="shrink-0 px-5 pt-5 pb-4">
           <div className="flex items-center gap-3">
-            <Avatar className="size-10">
-              <AvatarFallback className="bg-primary/15 text-base font-bold text-primary">
+            <Avatar className="size-11 shrink-0">
+              <AvatarFallback className="bg-primary/15 text-lg font-bold text-primary">
                 {name.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <DialogTitle>{name}</DialogTitle>
-              <DialogDescription>
-                {finished.length} jogos finalizados · {pending.length} pendentes
+            <div className="min-w-0">
+              <DialogTitle className="text-lg">{name}</DialogTitle>
+              <DialogDescription className="text-xs">
+                {finished.length} finalizados · {pending.length} pendentes com palpite
               </DialogDescription>
             </div>
           </div>
+
+          {/* Stats */}
+          <div className="mt-3 grid grid-cols-3 divide-x divide-border rounded-xl border border-border bg-muted/30">
+            <div className="py-3 text-center">
+              <p className="text-2xl font-bold text-primary">{hits}</p>
+              <p className="text-[11px] text-muted-foreground">Acertos</p>
+            </div>
+            <div className="py-3 text-center">
+              <p className="text-2xl font-bold text-destructive">{misses}</p>
+              <p className="text-[11px] text-muted-foreground">Erros</p>
+            </div>
+            <div className="py-3 text-center">
+              <p className="text-2xl font-bold">{hits}</p>
+              <p className="text-[11px] text-muted-foreground">Pontos</p>
+            </div>
+          </div>
+
+          {finished.length > 0 && (
+            <div className="mt-2 flex items-center gap-2">
+              <Progress value={pct} className="h-1.5 flex-1" />
+              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                {pct}% aproveit.
+              </span>
+            </div>
+          )}
         </DialogHeader>
 
-        {/* Mini resumo */}
-        <div className="grid grid-cols-3 gap-2 rounded-xl border border-border/60 bg-muted/30 p-3">
-          <div className="text-center">
-            <p className="text-xl font-bold text-primary">{hits}</p>
-            <p className="text-xs text-muted-foreground">Acertos</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xl font-bold text-destructive">{misses}</p>
-            <p className="text-xs text-muted-foreground">Erros</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xl font-bold">{hits}</p>
-            <p className="text-xs text-muted-foreground">Pontos</p>
-          </div>
-        </div>
+        <Separator />
 
-        {finished.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Progress value={finished.length > 0 ? (hits / finished.length) * 100 : 0} className="h-1.5 flex-1" />
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {finished.length > 0 ? Math.round((hits / finished.length) * 100) : 0}% de aproveitamento
-            </span>
-          </div>
-        )}
+        {/* Lista scrollável */}
+        <ScrollArea className="flex-1 overflow-y-auto">
+          <div className="flex flex-col gap-5 px-5 py-4">
 
-        <ScrollArea className="max-h-[52vh]">
-          <div className="flex flex-col gap-4 pr-3">
-
-            {/* Jogos finalizados */}
+            {/* Finalizados */}
             {finished.length > 0 && (
-              <section>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Finalizados
-                  </span>
-                  <Separator className="flex-1" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  {finished
-                    .sort((a, b) => a.date.localeCompare(b.date))
-                    .map((match) => {
-                      const guess = guesses[match.id]?.[name]
-                      const score = scores[match.id]
-                      const status = guessStatus(guess, score)
-                      return (
-                        <div
-                          key={match.id}
-                          className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/40"
-                        >
-                          <StatusIcon status={status} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">
-                              {flag(match.home)} {match.home} × {match.away} {flag(match.away)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Rodada {getRound(match.date)} · {formatMatchDate(match.date)} · Grupo {match.group}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs tabular-nums">
-                              {score.home} x {score.away}
+              <section className="flex flex-col gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Finalizados
+                </p>
+                {finished
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map((match) => {
+                    const guess = guesses[match.id]?.[name]
+                    const score = scores[match.id]
+                    const hit = guessStatus(guess, score) === "hit"
+                    return (
+                      <div
+                        key={match.id}
+                        className={`flex items-start gap-3 rounded-xl border p-3 ${
+                          hit
+                            ? "border-primary/25 bg-primary/8"
+                            : "border-destructive/25 bg-destructive/8"
+                        }`}
+                      >
+                        {hit
+                          ? <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" />
+                          : <XCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
+                        }
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold leading-snug">
+                            {flag(match.home)} {match.home} × {match.away} {flag(match.away)}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Rodada {getRound(match.date)} · {formatMatchDate(match.date)} · Grupo {match.group}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className="rounded-md bg-secondary px-2 py-0.5 font-mono text-xs tabular-nums">
+                              {score.home} × {score.away}
                             </span>
-                            <Badge
-                              variant="outline"
-                              className={
-                                status === "hit"
-                                  ? "border-primary/40 text-primary"
-                                  : "border-destructive/40 text-destructive"
-                              }
-                            >
-                              {OUTCOME_SHORT[guess]}
-                              <span className="hidden font-sans font-normal sm:inline">
-                                {" "}· {outcomeLabel(guess, match)}
-                              </span>
-                            </Badge>
+                            <span className={`text-xs font-semibold ${hit ? "text-primary" : "text-destructive"}`}>
+                              {OUTCOME_SHORT[guess]} — {outcomeLabel(guess, match)}
+                            </span>
                           </div>
                         </div>
-                      )
-                    })}
-                </div>
+                      </div>
+                    )
+                  })}
               </section>
             )}
 
-            {/* Jogos pendentes com palpite */}
+            {/* Pendentes */}
             {pending.length > 0 && (
-              <section>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Pendentes
-                  </span>
-                  <Separator className="flex-1" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  {pending
-                    .sort((a, b) => a.date.localeCompare(b.date))
-                    .map((match) => {
-                      const guess = guesses[match.id]?.[name]
-                      return (
-                        <div
-                          key={match.id}
-                          className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/40"
-                        >
-                          <StatusIcon status="pending" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">
-                              {flag(match.home)} {match.home} × {match.away} {flag(match.away)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Rodada {getRound(match.date)} · {formatMatchDate(match.date)} · Grupo {match.group}
-                            </p>
-                          </div>
-                          <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
-                            {OUTCOME_SHORT[guess]}
-                            <span className="hidden font-sans font-normal sm:inline">
-                              {" "}· {outcomeLabel(guess, match)}
+              <section className="flex flex-col gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Pendentes
+                </p>
+                {pending
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map((match) => {
+                    const guess = guesses[match.id]?.[name]
+                    return (
+                      <div
+                        key={match.id}
+                        className="flex items-start gap-3 rounded-xl border border-border/50 p-3"
+                      >
+                        <Clock className="mt-0.5 size-5 shrink-0 text-muted-foreground/50" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold leading-snug">
+                            {flag(match.home)} {match.home} × {match.away} {flag(match.away)}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Rodada {getRound(match.date)} · {formatMatchDate(match.date)} · Grupo {match.group}
+                          </p>
+                          <p className="mt-1.5 text-xs">
+                            <span className="text-muted-foreground">Palpite: </span>
+                            <span className="font-semibold">
+                              {OUTCOME_SHORT[guess]} — {outcomeLabel(guess, match)}
                             </span>
-                          </Badge>
+                          </p>
                         </div>
-                      )
-                    })}
-                </div>
+                      </div>
+                    )
+                  })}
               </section>
             )}
 
             {withGuess.length === 0 && (
-              <p className="py-4 text-center text-sm text-muted-foreground">
+              <p className="py-6 text-center text-sm text-muted-foreground">
                 {name} ainda não fez nenhum palpite.
               </p>
             )}
@@ -212,20 +184,20 @@ export default function RankingTable({ ranking, guesses, scores }) {
         <CardHeader>
           <CardTitle>Classificação</CardTitle>
           <CardDescription>
-            Acertar o resultado (vitória, empate ou derrota) vale 1 ponto · clique no nome para ver os detalhes
+            1 ponto por resultado correto · toque no nome para ver detalhes
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10">#</TableHead>
+                <TableHead className="w-8">#</TableHead>
                 <TableHead>Participante</TableHead>
                 <TableHead className="text-center">J</TableHead>
                 <TableHead className="text-center">V</TableHead>
                 <TableHead className="text-center">D</TableHead>
                 <TableHead className="text-center">Pts</TableHead>
-                <TableHead className="text-right">%</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">%</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -244,37 +216,34 @@ export default function RankingTable({ ranking, guesses, scores }) {
                     className={`cursor-pointer ${isLeader ? "bg-gold/10 hover:bg-gold/15" : "hover:bg-muted/50"}`}
                     onClick={() => setSelected(row.name)}
                   >
-                    <TableCell className="font-mono text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <Avatar className="size-7">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="size-7 shrink-0">
                           <AvatarFallback
-                            className={
-                              isLeader
-                                ? "bg-gold/20 text-gold text-xs font-bold"
-                                : "bg-primary/15 text-primary text-xs font-bold"
+                            className={isLeader
+                              ? "bg-gold/20 text-gold text-xs font-bold"
+                              : "bg-primary/15 text-primary text-xs font-bold"
                             }
                           >
                             {row.name.charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <span className={`font-medium underline-offset-2 hover:underline ${isLeader ? "text-gold" : ""}`}>
+                        <span className={`text-sm font-medium underline-offset-2 hover:underline ${isLeader ? "text-gold" : ""}`}>
                           {row.name}
                         </span>
                         {isLeader && (
-                          <Badge className="border-transparent bg-gold/20 text-gold hover:bg-gold/20">
+                          <Badge className="hidden border-transparent bg-gold/20 text-gold hover:bg-gold/20 sm:inline-flex">
                             👑 Líder
                           </Badge>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center font-mono">{row.played}</TableCell>
-                    <TableCell className="text-center font-mono text-primary">{row.wins}</TableCell>
-                    <TableCell className="text-center font-mono text-destructive">
-                      {row.losses}
-                    </TableCell>
-                    <TableCell className="text-center font-mono font-bold">{row.points}</TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">
+                    <TableCell className="text-center font-mono text-sm">{row.played}</TableCell>
+                    <TableCell className="text-center font-mono text-sm text-primary">{row.wins}</TableCell>
+                    <TableCell className="text-center font-mono text-sm text-destructive">{row.losses}</TableCell>
+                    <TableCell className="text-center font-mono text-sm font-bold">{row.points}</TableCell>
+                    <TableCell className="hidden text-right font-mono text-sm text-muted-foreground sm:table-cell">
                       {row.pct}%
                     </TableCell>
                   </TableRow>
