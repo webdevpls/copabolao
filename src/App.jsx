@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react"
-import { Trophy, ListChecks, History, Users } from "lucide-react"
+import { useEffect, useMemo, useState, useCallback } from "react"
+import { Trophy, ListChecks, History, Users, Loader2, WifiOff } from "lucide-react"
+import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Header from "@/components/Header"
 import StatsCards from "@/components/StatsCards"
@@ -9,98 +10,159 @@ import MatchList from "@/components/MatchList"
 import HistoryList from "@/components/HistoryList"
 import ParticipantsManager from "@/components/ParticipantsManager"
 import { MATCHES, getRound } from "@/data/matches"
-import { seedState } from "@/data/seed"
 import { computeStats, isValidScore } from "@/lib/scoring"
-
-// v3: garante seed 1X2 limpo — incrementar para forçar reset do localStorage
-const STORAGE_KEY = "bolao-copa-2026:v3"
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed.participants)) {
-        return {
-          participants: parsed.participants,
-          scores: parsed.scores ?? {},
-          guesses: parsed.guesses ?? {},
-        }
-      }
-    }
-  } catch {
-    // localStorage corrompido ou indisponível — recomeça com o seed
-  }
-  return seedState()
-}
+import { supabase } from "@/lib/supabase"
+import {
+  fetchParticipants, addParticipant as dbAdd, removeParticipant as dbRemove,
+  fetchScores, upsertScore, deleteScore,
+  fetchGuesses, upsertGuess,
+} from "@/lib/db"
 
 export default function App() {
-  const [state, setState] = useState(loadState)
-  const [filters, setFilters] = useState({ status: "all", round: "all", group: "all" })
+  const [participants, setParticipants] = useState([])
+  const [scores, setScores]             = useState({})
+  const [guesses, setGuesses]           = useState({})
+  const [loading, setLoading]           = useState(true)
+  const [offline, setOffline]           = useState(false)
+  const [filters, setFilters]           = useState({ status: "all", round: "all", group: "all" })
 
-  const { participants, scores, guesses } = state
-
+  // ── Carregamento inicial ────────────────────────────────────
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  }, [state])
+    async function load() {
+      try {
+        const [p, s, g] = await Promise.all([fetchParticipants(), fetchScores(), fetchGuesses()])
+        setParticipants(p)
+        setScores(s)
+        setGuesses(g)
+      } catch (err) {
+        console.error(err)
+        setOffline(true)
+        toast.error("Sem conexão com o banco de dados. Verifique as variáveis de ambiente.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
 
+  // ── Real-time: ouve alterações de outros usuários ───────────
+  useEffect(() => {
+    const channel = supabase
+      .channel("bolao-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "participants" }, async () => {
+        setParticipants(await fetchParticipants())
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "scores" }, async () => {
+        setScores(await fetchScores())
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "guesses" }, async () => {
+        setGuesses(await fetchGuesses())
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
+  // ── Ações ───────────────────────────────────────────────────
+  const saveScore = useCallback(async (matchId, score) => {
+    // optimistic
+    setScores((s) => ({ ...s, [matchId]: score }))
+    try {
+      await upsertScore(matchId, score)
+    } catch {
+      toast.error("Erro ao salvar o placar.")
+      setScores(await fetchScores())
+    }
+  }, [])
+
+  const clearScore = useCallback(async (matchId) => {
+    setScores((s) => { const n = { ...s }; delete n[matchId]; return n })
+    try {
+      await deleteScore(matchId)
+    } catch {
+      toast.error("Erro ao remover o placar.")
+      setScores(await fetchScores())
+    }
+  }, [])
+
+  const setGuess = useCallback(async (matchId, name, outcome) => {
+    // optimistic
+    setGuesses((g) => ({
+      ...g,
+      [matchId]: outcome === null
+        ? Object.fromEntries(Object.entries(g[matchId] ?? {}).filter(([k]) => k !== name))
+        : { ...g[matchId], [name]: outcome },
+    }))
+    try {
+      await upsertGuess(matchId, name, outcome)
+    } catch {
+      toast.error("Erro ao salvar o palpite.")
+      setGuesses(await fetchGuesses())
+    }
+  }, [])
+
+  const addParticipant = useCallback(async (name) => {
+    setParticipants((p) => [...p, name])
+    try {
+      await dbAdd(name)
+    } catch {
+      toast.error("Erro ao adicionar participante.")
+      setParticipants(await fetchParticipants())
+    }
+  }, [])
+
+  const removeParticipant = useCallback(async (name) => {
+    setParticipants((p) => p.filter((x) => x !== name))
+    setGuesses((g) => Object.fromEntries(
+      Object.entries(g).map(([mid, byName]) => {
+        const n = { ...byName }; delete n[name]; return [mid, n]
+      })
+    ))
+    try {
+      await dbRemove(name) // cascade apaga os palpites no banco
+    } catch {
+      toast.error("Erro ao remover participante.")
+      const [p, g] = await Promise.all([fetchParticipants(), fetchGuesses()])
+      setParticipants(p); setGuesses(g)
+    }
+  }, [])
+
+  // ── Derivados ───────────────────────────────────────────────
   const stats = useMemo(
     () => computeStats(participants, guesses, scores),
     [participants, guesses, scores]
   )
 
-  const filteredMatches = useMemo(() => {
-    return MATCHES.filter((match) => {
-      const finished = isValidScore(scores[match.id])
-      if (filters.status === "finished" && !finished) return false
-      if (filters.status === "pending" && finished) return false
-      if (filters.round !== "all" && getRound(match.date) !== Number(filters.round)) return false
-      if (filters.group !== "all" && match.group !== filters.group) return false
-      return true
-    })
-  }, [filters, scores])
+  const filteredMatches = useMemo(() => MATCHES.filter((match) => {
+    const finished = isValidScore(scores[match.id])
+    if (filters.status === "finished" && !finished) return false
+    if (filters.status === "pending"  && finished)  return false
+    if (filters.round !== "all" && getRound(match.date) !== Number(filters.round)) return false
+    if (filters.group !== "all" && match.group !== filters.group) return false
+    return true
+  }), [filters, scores])
 
-  const saveScore = (matchId, score) => {
-    setState((s) => ({ ...s, scores: { ...s.scores, [matchId]: score } }))
+  // ── Loading / offline ───────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 text-muted-foreground">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <p className="text-sm">Carregando dados do bolão…</p>
+      </div>
+    )
   }
 
-  const clearScore = (matchId) => {
-    setState((s) => {
-      const scores = { ...s.scores }
-      delete scores[matchId]
-      return { ...s, scores }
-    })
-  }
-
-  const setGuess = (matchId, name, guess) => {
-    setState((s) => ({
-      ...s,
-      guesses: {
-        ...s.guesses,
-        [matchId]: { ...s.guesses[matchId], [name]: guess },
-      },
-    }))
-  }
-
-  const addParticipant = (name) => {
-    setState((s) => ({ ...s, participants: [...s.participants, name] }))
-  }
-
-  const removeParticipant = (name) => {
-    setState((s) => {
-      const guesses = Object.fromEntries(
-        Object.entries(s.guesses).map(([matchId, byName]) => {
-          const next = { ...byName }
-          delete next[name]
-          return [matchId, next]
-        })
-      )
-      return {
-        ...s,
-        participants: s.participants.filter((p) => p !== name),
-        guesses,
-      }
-    })
+  if (offline) {
+    return (
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 text-muted-foreground">
+        <WifiOff className="size-8 text-destructive" />
+        <p className="text-sm font-medium text-destructive">Sem conexão com o Supabase</p>
+        <p className="max-w-xs text-center text-xs">
+          Verifique se as variáveis <code className="rounded bg-muted px-1">VITE_SUPABASE_URL</code> e{" "}
+          <code className="rounded bg-muted px-1">VITE_SUPABASE_ANON_KEY</code> estão configuradas.
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -170,7 +232,7 @@ export default function App() {
         </Tabs>
 
         <footer className="pb-4 text-center text-xs text-muted-foreground">
-          Bolão da Copa 2026 · acertar o resultado (1X2) vale 1 ponto · dados salvos no seu navegador
+          Bolão da Copa 2026 · 1 ponto por resultado correto · dados compartilhados em tempo real
         </footer>
       </main>
     </div>
