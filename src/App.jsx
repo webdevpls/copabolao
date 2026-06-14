@@ -11,9 +11,17 @@ import HistoryList from "@/components/HistoryList"
 import ParticipantsManager from "@/components/ParticipantsManager"
 import { MATCHES, getRound } from "@/data/matches"
 import { computeStats, isValidScore } from "@/lib/scoring"
-import { loadState, saveState } from "@/lib/api"
+import {
+  loadState,
+  upsertScore,
+  deleteScore,
+  upsertGuess,
+  deleteGuess,
+  addParticipant as apiAddParticipant,
+  removeParticipant as apiRemoveParticipant,
+} from "@/lib/api"
 
-const POLL_INTERVAL = 15_000 // atualiza de outros usuários a cada 15s
+const POLL_INTERVAL = 15_000
 
 export default function App() {
   const [participants, setParticipants] = useState([])
@@ -23,7 +31,6 @@ export default function App() {
   const [offline, setOffline]           = useState(false)
   const [filters, setFilters]           = useState({ status: "all", round: "all", group: "all" })
 
-  // ref para construir o estado mais recente sem depender de closure stale
   const stateRef = useRef({ participants: [], scores: {}, guesses: {} })
 
   function applyState(data) {
@@ -45,42 +52,29 @@ export default function App() {
       .catch((err) => {
         console.error(err)
         setOffline(true)
-        toast.error("Não foi possível conectar ao servidor.")
+        toast.error("Não foi possível conectar ao banco de dados.")
       })
       .finally(() => setLoading(false))
   }, [])
 
-  // ── Polling: capta palpites de outros usuários ─────────────
+  // ── Polling ────────────────────────────────────────────────
   useEffect(() => {
     const id = setInterval(async () => {
-      try {
-        const data = await loadState()
-        applyState(data)
-      } catch { /* silencioso */ }
+      try { applyState(await loadState()) } catch { /* silencioso */ }
     }, POLL_INTERVAL)
     return () => clearInterval(id)
   }, [])
 
-  // ── Persiste no Blob silenciosamente ──────────────────────
-  const persist = useCallback(async (next) => {
-    try {
-      await saveState(next)
-    } catch (err) {
-      console.error("Erro ao salvar:", err)
-      toast.error("Falha ao salvar. Tente novamente.")
-    }
-  }, [])
-
   // ── Ações ─────────────────────────────────────────────────
   const saveScore = useCallback((matchId, score) => {
-    const next = {
-      ...stateRef.current,
-      scores: { ...stateRef.current.scores, [matchId]: score },
-    }
+    const next = { ...stateRef.current, scores: { ...stateRef.current.scores, [matchId]: score } }
     stateRef.current = next
     setScores(next.scores)
-    persist(next)
-  }, [persist])
+    upsertScore(matchId, score.home, score.away).catch((err) => {
+      console.error(err)
+      toast.error("Falha ao salvar resultado.")
+    })
+  }, [])
 
   const clearScore = useCallback((matchId) => {
     const scores = { ...stateRef.current.scores }
@@ -88,8 +82,11 @@ export default function App() {
     const next = { ...stateRef.current, scores }
     stateRef.current = next
     setScores(next.scores)
-    persist(next)
-  }, [persist])
+    deleteScore(matchId).catch((err) => {
+      console.error(err)
+      toast.error("Falha ao remover resultado.")
+    })
+  }, [])
 
   const setGuess = useCallback((matchId, name, outcome) => {
     const matchGuesses = { ...stateRef.current.guesses[matchId] }
@@ -104,18 +101,29 @@ export default function App() {
     }
     stateRef.current = next
     setGuesses(next.guesses)
-    persist(next)
-  }, [persist])
+
+    if (outcome === null) {
+      deleteGuess(matchId, name).catch((err) => {
+        console.error(err)
+        toast.error("Falha ao remover palpite.")
+      })
+    } else {
+      upsertGuess(matchId, name, outcome).catch((err) => {
+        console.error(err)
+        toast.error("Falha ao salvar palpite.")
+      })
+    }
+  }, [])
 
   const addParticipant = useCallback((name) => {
-    const next = {
-      ...stateRef.current,
-      participants: [...stateRef.current.participants, name],
-    }
+    const next = { ...stateRef.current, participants: [...stateRef.current.participants, name] }
     stateRef.current = next
     setParticipants(next.participants)
-    persist(next)
-  }, [persist])
+    apiAddParticipant(name).catch((err) => {
+      console.error(err)
+      toast.error("Falha ao adicionar participante.")
+    })
+  }, [])
 
   const removeParticipant = useCallback((name) => {
     const guesses = Object.fromEntries(
@@ -133,8 +141,11 @@ export default function App() {
     stateRef.current = next
     setParticipants(next.participants)
     setGuesses(next.guesses)
-    persist(next)
-  }, [persist])
+    apiRemoveParticipant(name).catch((err) => {
+      console.error(err)
+      toast.error("Falha ao remover participante.")
+    })
+  }, [])
 
   // ── Derivados ──────────────────────────────────────────────
   const stats = useMemo(
@@ -165,10 +176,11 @@ export default function App() {
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">
         <WifiOff className="size-8 text-destructive" />
-        <p className="font-medium text-destructive">Sem conexão com o servidor</p>
+        <p className="font-medium text-destructive">Sem conexão com o banco de dados</p>
         <p className="max-w-xs text-xs">
-          Configure o Vercel Blob no painel da Vercel e adicione a variável{" "}
-          <code className="rounded bg-muted px-1">BLOB_READ_WRITE_TOKEN</code> ao projeto.
+          Verifique as variáveis de ambiente{" "}
+          <code className="rounded bg-muted px-1">VITE_SUPABASE_URL</code> e{" "}
+          <code className="rounded bg-muted px-1">VITE_SUPABASE_ANON_KEY</code> no painel da Vercel.
         </p>
       </div>
     )
@@ -241,7 +253,7 @@ export default function App() {
         </Tabs>
 
         <footer className="pb-4 text-center text-xs text-muted-foreground">
-          Bolão da Copa 2026 · 1 ponto por resultado correto · dados compartilhados
+          Bolão da Copa 2026 · 1 ponto por resultado correto · dados compartilhados via Supabase
         </footer>
       </main>
     </div>
