@@ -1,5 +1,5 @@
--- Insere os jogos do mata-mata (73-104) na tabela matches.
--- Rode UMA vez no SQL Editor do Supabase.
+-- Mata-mata: libera grp nulo (jogo eliminatório não tem grupo) e insere os jogos 73-104.
+alter table public.matches alter column grp drop not null;
 
 insert into public.matches (id, grp, match_date, match_time, home_team, away_team, venue) values
   (73, NULL, '2026-06-28', '12:00', 'África do Sul', 'Canadá', 'SoFi Stadium, Los Angeles'),
