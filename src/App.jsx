@@ -36,7 +36,7 @@ export default function App() {
   const [guesses, setGuesses]                 = useState({})
   const [loading, setLoading]                 = useState(true)
   const [offline, setOffline]                 = useState(false)
-  const [filters, setFilters]                 = useState({ status: "all", round: "all", group: "all" })
+  const [filters, setFilters]                 = useState({ status: "all", round: "r32", group: "all" })
 
   const stateRef  = useRef({ participants: [], scores: {}, guesses: {} })
   const leagueRef = useRef(null) // liga atual, para uso nos callbacks assíncronos
