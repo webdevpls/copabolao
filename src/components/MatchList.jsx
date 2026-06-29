@@ -2,9 +2,7 @@ import { Separator } from "@/components/ui/separator"
 import { Card, CardContent } from "@/components/ui/card"
 import { CalendarX2 } from "lucide-react"
 import MatchCard from "@/components/MatchCard"
-import { getRound, todayISO } from "@/data/matches"
-
-const ROUND_PERIODS = { 1: "11 a 17 de junho", 2: "18 a 23 de junho", 3: "24 a 27 de junho" }
+import { PHASES, phaseKey, todayISO } from "@/data/matches"
 
 export default function MatchList({ matches, scores, guesses, participants, onSaveScore, onClearScore, onSetGuess }) {
   const today = todayISO()
@@ -20,19 +18,19 @@ export default function MatchList({ matches, scores, guesses, participants, onSa
     )
   }
 
-  const rounds = [1, 2, 3]
-    .map((round) => ({ round, items: matches.filter((m) => getRound(m.date) === round) }))
+  const sections = PHASES
+    .map((p) => ({ ...p, items: matches.filter((m) => phaseKey(m) === p.key) }))
     .filter(({ items }) => items.length > 0)
 
   return (
     <div className="flex flex-col gap-6">
-      {rounds.map(({ round, items }) => (
-        <section key={round}>
+      {sections.map(({ key, label, period, items }) => (
+        <section key={key}>
           <div className="mb-3 flex items-center gap-3">
             <h2 className="text-sm font-bold tracking-tight whitespace-nowrap">
-              Rodada {round}
+              {label}
               <span className="ml-2 font-normal text-muted-foreground">
-                {ROUND_PERIODS[round]} · {items.length} {items.length === 1 ? "jogo" : "jogos"}
+                {period} · {items.length} {items.length === 1 ? "jogo" : "jogos"}
               </span>
             </h2>
             <Separator className="flex-1" />

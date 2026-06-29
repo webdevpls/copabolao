@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import GuessRow from "@/components/GuessRow"
-import { flag, formatMatchDate, getRound } from "@/data/matches"
+import { flag, formatMatchDate, phaseLabel, matchTag } from "@/data/matches"
 import { isValidScore, isValidGuess } from "@/lib/scoring"
 import { cn } from "@/lib/utils"
 
@@ -29,7 +29,6 @@ function TeamLabel({ team, align = "left" }) {
 function buildWhatsAppText(match) {
   const hFlag = flag(match.home)
   const aFlag = flag(match.away)
-  const round = getRound(match.date)
 
   // Formata a data por extenso em pt-BR
   const dateObj = new Date(`${match.date}T12:00:00`)
@@ -40,13 +39,13 @@ function buildWhatsAppText(match) {
   }).format(dateObj)
 
   return [
-    `🏆 *Bolão da Copa 2026 – Rodada ${round}*`,
+    `🏆 *Bolão da Copa 2026 – ${phaseLabel(match)}*`,
     ``,
     `⚽ *${hFlag} ${match.home}  x  ${match.away} ${aFlag}*`,
     ``,
     `📅 ${dateLong.charAt(0).toUpperCase() + dateLong.slice(1)}, ${match.time}`,
     `📍 ${match.venue}`,
-    `🔵 Grupo ${match.group}`,
+    `🔵 ${match.group ? `Grupo ${match.group}` : phaseLabel(match)}`,
     ``,
     `*👇 Reaja a esta mensagem com:*`,
     `1️⃣  → Vitória ${match.home}`,
@@ -117,7 +116,7 @@ export default function MatchCard({
         {/* Cabeçalho: grupo, status, data e botão copiar */}
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="outline" className="border-primary/40 text-primary">
-            Grupo {match.group}
+            {matchTag(match)}
           </Badge>
           {isToday && (
             <Badge className="border-transparent bg-gold/20 text-gold hover:bg-gold/20">

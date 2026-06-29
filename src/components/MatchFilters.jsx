@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { GROUPS } from "@/data/matches"
+import { GROUPS, PHASES } from "@/data/matches"
 
 const STATUS_ITEMS = [
   { value: "all", label: "Todos" },
@@ -14,11 +14,9 @@ const STATUS_ITEMS = [
   { value: "pending", label: "Pendentes" },
 ]
 
-const ROUND_ITEMS = [
+const PHASE_ITEMS = [
   { value: "all", label: "Todas" },
-  { value: "1", label: "Rodada 1" },
-  { value: "2", label: "Rodada 2" },
-  { value: "3", label: "Rodada 3" },
+  ...PHASES.map((p) => ({ value: p.key, label: p.label })),
 ]
 
 const GROUP_ITEMS = [
@@ -55,7 +53,7 @@ export default function MatchFilters({ filters, onChange }) {
         Filtros
       </div>
       <FilterSelect label="Status" value={filters.status} onChange={set("status")} items={STATUS_ITEMS} />
-      <FilterSelect label="Rodada" value={filters.round} onChange={set("round")} items={ROUND_ITEMS} />
+      <FilterSelect label="Fase" value={filters.round} onChange={set("round")} items={PHASE_ITEMS} />
       <FilterSelect label="Grupo" value={filters.group} onChange={set("group")} items={GROUP_ITEMS} />
     </div>
   )

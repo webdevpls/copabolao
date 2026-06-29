@@ -40,7 +40,7 @@ export default function StatsCards({ stats }) {
         icon={CalendarCheck}
         label="Jogos concluídos"
         value={`${finished}/${total}`}
-        detail={`${Math.round((finished / total) * 100)}% da fase de grupos`}
+        detail={`${Math.round((finished / total) * 100)}% da Copa`}
       >
         <Progress value={(finished / total) * 100} className="mt-1.5 h-1.5" />
       </StatCard>

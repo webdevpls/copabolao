@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import GuessRow from "@/components/GuessRow"
-import { flag, formatMatchDate, getRound } from "@/data/matches"
+import { flag, formatMatchDate, phaseLabel } from "@/data/matches"
 import { isValidScore } from "@/lib/scoring"
 
 // Mesma estrutura do MatchList, mas somente jogos finalizados,
@@ -35,11 +35,13 @@ export default function HistoryList({ matches, scores, guesses, participants, on
               <CardContent className="flex flex-col gap-3 px-4">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Badge variant="outline" className="border-primary/40 text-primary">
-                    Grupo {match.group}
+                    {match.group ? `Grupo ${match.group}` : phaseLabel(match)}
                   </Badge>
-                  <Badge variant="secondary" className="text-muted-foreground">
-                    Rodada {getRound(match.date)}
-                  </Badge>
+                  {match.group && (
+                    <Badge variant="secondary" className="text-muted-foreground">
+                      {phaseLabel(match)}
+                    </Badge>
+                  )}
                   <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
                     <CalendarDays className="size-3.5" />
                     {formatMatchDate(match.date)} · {match.time}

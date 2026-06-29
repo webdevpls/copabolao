@@ -9,9 +9,13 @@ import MatchFilters from "@/components/MatchFilters"
 import MatchList from "@/components/MatchList"
 import HistoryList from "@/components/HistoryList"
 import ParticipantsManager from "@/components/ParticipantsManager"
-import { MATCHES, getRound } from "@/data/matches"
+import LeagueBar from "@/components/LeagueBar"
+import { MATCHES, phaseKey } from "@/data/matches"
 import { computeStats, isValidScore } from "@/lib/scoring"
 import {
+  loadLeagues,
+  createLeague as apiCreateLeague,
+  removeLeague as apiRemoveLeague,
   loadState,
   upsertScore,
   deleteScore,
@@ -22,16 +26,20 @@ import {
 } from "@/lib/api"
 
 const POLL_INTERVAL = 15_000
+const LEAGUE_KEY = "bolao-copa-2026:liga-atual"
 
 export default function App() {
-  const [participants, setParticipants] = useState([])
-  const [scores, setScores]             = useState({})
-  const [guesses, setGuesses]           = useState({})
-  const [loading, setLoading]           = useState(true)
-  const [offline, setOffline]           = useState(false)
-  const [filters, setFilters]           = useState({ status: "all", round: "all", group: "all" })
+  const [leagues, setLeagues]                 = useState([])
+  const [currentLeagueId, setCurrentLeagueId] = useState(null)
+  const [participants, setParticipants]       = useState([])
+  const [scores, setScores]                   = useState({})
+  const [guesses, setGuesses]                 = useState({})
+  const [loading, setLoading]                 = useState(true)
+  const [offline, setOffline]                 = useState(false)
+  const [filters, setFilters]                 = useState({ status: "all", round: "all", group: "all" })
 
-  const stateRef = useRef({ participants: [], scores: {}, guesses: {} })
+  const stateRef  = useRef({ participants: [], scores: {}, guesses: {} })
+  const leagueRef = useRef(null) // liga atual, para uso nos callbacks assíncronos
 
   function applyState(data) {
     const s = {
@@ -45,25 +53,60 @@ export default function App() {
     setGuesses(s.guesses)
   }
 
-  // ── Carregamento inicial ───────────────────────────────────
+  // ── Carrega ligas e escolhe a liga inicial ─────────────────
   useEffect(() => {
-    loadState()
-      .then(applyState)
+    (async () => {
+      try {
+        let ls = await loadLeagues()
+        if (ls.length === 0) ls = [await apiCreateLeague("Liga Principal")]
+        setLeagues(ls)
+        // Prioridade: liga do link (?liga=) > última usada neste aparelho > primeira.
+        const fromUrl = new URLSearchParams(window.location.search).get("liga")
+        const saved = localStorage.getItem(LEAGUE_KEY)
+        setCurrentLeagueId(
+          ls.find((l) => l.id === fromUrl)?.id ??
+          ls.find((l) => l.id === saved)?.id ??
+          ls[0].id
+        )
+      } catch (err) {
+        console.error(err)
+        setOffline(true)
+        setLoading(false)
+        toast.error("Não foi possível conectar ao banco de dados.")
+      }
+    })()
+  }, [])
+
+  // ── Carrega o estado da liga atual + polling ───────────────
+  useEffect(() => {
+    if (!currentLeagueId) return
+    leagueRef.current = currentLeagueId
+    localStorage.setItem(LEAGUE_KEY, currentLeagueId)
+    // Reflete a liga atual na URL (?liga=) p/ refresh e compartilhamento de link.
+    const url = new URL(window.location.href)
+    url.searchParams.set("liga", currentLeagueId)
+    window.history.replaceState({}, "", url)
+
+    let active = true
+    loadState(currentLeagueId)
+      .then((data) => { if (active) { applyState(data); setOffline(false) } })
       .catch((err) => {
+        if (!active) return
         console.error(err)
         setOffline(true)
         toast.error("Não foi possível conectar ao banco de dados.")
       })
-      .finally(() => setLoading(false))
-  }, [])
+      .finally(() => { if (active) setLoading(false) })
 
-  // ── Polling ────────────────────────────────────────────────
-  useEffect(() => {
     const id = setInterval(async () => {
-      try { applyState(await loadState()) } catch { /* silencioso */ }
+      try {
+        const data = await loadState(currentLeagueId)
+        if (active) applyState(data)
+      } catch { /* silencioso */ }
     }, POLL_INTERVAL)
-    return () => clearInterval(id)
-  }, [])
+
+    return () => { active = false; clearInterval(id) }
+  }, [currentLeagueId])
 
   // ── Ações ─────────────────────────────────────────────────
   const saveScore = useCallback((matchId, score) => {
@@ -103,12 +146,12 @@ export default function App() {
     setGuesses(next.guesses)
 
     if (outcome === null) {
-      deleteGuess(matchId, name).catch((err) => {
+      deleteGuess(leagueRef.current, matchId, name).catch((err) => {
         console.error(err)
         toast.error("Falha ao remover palpite.")
       })
     } else {
-      upsertGuess(matchId, name, outcome).catch((err) => {
+      upsertGuess(leagueRef.current, matchId, name, outcome).catch((err) => {
         console.error(err)
         toast.error("Falha ao salvar palpite.")
       })
@@ -119,7 +162,7 @@ export default function App() {
     const next = { ...stateRef.current, participants: [...stateRef.current.participants, name] }
     stateRef.current = next
     setParticipants(next.participants)
-    apiAddParticipant(name).catch((err) => {
+    apiAddParticipant(leagueRef.current, name).catch((err) => {
       console.error(err)
       toast.error("Falha ao adicionar participante.")
     })
@@ -141,11 +184,43 @@ export default function App() {
     stateRef.current = next
     setParticipants(next.participants)
     setGuesses(next.guesses)
-    apiRemoveParticipant(name).catch((err) => {
+    apiRemoveParticipant(leagueRef.current, name).catch((err) => {
       console.error(err)
       toast.error("Falha ao remover participante.")
     })
   }, [])
+
+  // ── Ligas ─────────────────────────────────────────────────
+  function selectLeague(id) {
+    if (id !== currentLeagueId) setCurrentLeagueId(id)
+  }
+
+  function createLeague(name) {
+    apiCreateLeague(name)
+      .then((league) => {
+        setLeagues((prev) => [...prev, league])
+        setCurrentLeagueId(league.id)
+        toast.success(`Liga "${name}" criada! 🎉`)
+      })
+      .catch((err) => {
+        console.error(err)
+        toast.error("Falha ao criar liga.")
+      })
+  }
+
+  function removeLeague(id) {
+    const remaining = leagues.filter((l) => l.id !== id)
+    apiRemoveLeague(id)
+      .then(() => {
+        setLeagues(remaining)
+        if (id === currentLeagueId) setCurrentLeagueId(remaining[0]?.id ?? null)
+        toast.info("Liga excluída.")
+      })
+      .catch((err) => {
+        console.error(err)
+        toast.error("Falha ao excluir liga.")
+      })
+  }
 
   // ── Derivados ──────────────────────────────────────────────
   const stats = useMemo(
@@ -157,7 +232,7 @@ export default function App() {
     const finished = isValidScore(scores[m.id])
     if (filters.status === "finished" && !finished) return false
     if (filters.status === "pending"  && finished)  return false
-    if (filters.round !== "all" && getRound(m.date) !== Number(filters.round)) return false
+    if (filters.round !== "all" && phaseKey(m) !== filters.round) return false
     if (filters.group !== "all" && m.group !== filters.group) return false
     return true
   }), [filters, scores])
@@ -190,6 +265,13 @@ export default function App() {
     <div className="min-h-svh">
       <Header />
       <main className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-5">
+        <LeagueBar
+          leagues={leagues}
+          currentId={currentLeagueId}
+          onSelect={selectLeague}
+          onCreate={createLeague}
+          onRemove={removeLeague}
+        />
         <StatsCards stats={stats} />
 
         <Tabs defaultValue="ranking">
