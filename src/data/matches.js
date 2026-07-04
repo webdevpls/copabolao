@@ -148,15 +148,15 @@ export const MATCHES = [
   { id: 87, stage: "r32", date: "2026-07-03", time: "20:30", home: "Colômbia", away: "Gana", venue: "Arrowhead Stadium, Kansas City", score: null },
   { id: 88, stage: "r32", date: "2026-07-03", time: "13:00", home: "Austrália", away: "Egito", venue: "AT&T Stadium, Dallas", score: null },
 
-  // Oitavas de final (Round of 16) · 04 a 07/07
-  { id: 89, stage: "r16", date: "2026-07-04", time: "17:00", home: "Vencedor Jogo 74", away: "Vencedor Jogo 77", venue: "Lincoln Financial Field, Filadélfia", score: null },
-  { id: 90, stage: "r16", date: "2026-07-04", time: "12:00", home: "Canadá", away: "Vencedor Jogo 75", venue: "NRG Stadium, Houston", score: null },
-  { id: 91, stage: "r16", date: "2026-07-05", time: "16:00", home: "Vencedor Jogo 76", away: "Vencedor Jogo 78", venue: "MetLife Stadium, Nova York/Nova Jersey", score: null },
-  { id: 92, stage: "r16", date: "2026-07-05", time: "18:00", home: "Vencedor Jogo 79", away: "Vencedor Jogo 80", venue: "Estádio Azteca, Cidade do México", score: null },
-  { id: 93, stage: "r16", date: "2026-07-06", time: "14:00", home: "Vencedor Jogo 83", away: "Vencedor Jogo 84", venue: "AT&T Stadium, Dallas", score: null },
-  { id: 94, stage: "r16", date: "2026-07-06", time: "17:00", home: "Vencedor Jogo 81", away: "Vencedor Jogo 82", venue: "Lumen Field, Seattle", score: null },
-  { id: 95, stage: "r16", date: "2026-07-07", time: "12:00", home: "Vencedor Jogo 86", away: "Vencedor Jogo 88", venue: "Mercedes-Benz Stadium, Atlanta", score: null },
-  { id: 96, stage: "r16", date: "2026-07-07", time: "13:00", home: "Vencedor Jogo 85", away: "Vencedor Jogo 87", venue: "BC Place, Vancouver", score: null },
+  // Oitavas de final (Round of 16) · 04 a 07/07 — times definidos pelos 16avos
+  { id: 89, stage: "r16", date: "2026-07-04", time: "17:00", home: "Paraguai", away: "França", venue: "Lincoln Financial Field, Filadélfia", score: null },
+  { id: 90, stage: "r16", date: "2026-07-04", time: "12:00", home: "Canadá", away: "Marrocos", venue: "NRG Stadium, Houston", score: null },
+  { id: 91, stage: "r16", date: "2026-07-05", time: "16:00", home: "Brasil", away: "Noruega", venue: "MetLife Stadium, Nova York/Nova Jersey", score: null },
+  { id: 92, stage: "r16", date: "2026-07-05", time: "18:00", home: "México", away: "Inglaterra", venue: "Estádio Azteca, Cidade do México", score: null },
+  { id: 93, stage: "r16", date: "2026-07-06", time: "14:00", home: "Portugal", away: "Espanha", venue: "AT&T Stadium, Dallas", score: null },
+  { id: 94, stage: "r16", date: "2026-07-06", time: "17:00", home: "Estados Unidos", away: "Bélgica", venue: "Lumen Field, Seattle", score: null },
+  { id: 95, stage: "r16", date: "2026-07-07", time: "12:00", home: "Argentina", away: "Egito", venue: "Mercedes-Benz Stadium, Atlanta", score: null },
+  { id: 96, stage: "r16", date: "2026-07-07", time: "13:00", home: "Suíça", away: "Colômbia", venue: "BC Place, Vancouver", score: null },
 
   // Quartas de final · 09 a 11/07
   { id: 97, stage: "qf", date: "2026-07-09", time: "16:00", home: "Vencedor Jogo 89", away: "Vencedor Jogo 90", venue: "Gillette Stadium, Boston", score: null },
