@@ -158,11 +158,11 @@ export const MATCHES = [
   { id: 95, stage: "r16", date: "2026-07-07", time: "12:00", home: "Argentina", away: "Egito", venue: "Mercedes-Benz Stadium, Atlanta", score: null },
   { id: 96, stage: "r16", date: "2026-07-07", time: "13:00", home: "Suíça", away: "Colômbia", venue: "BC Place, Vancouver", score: null },
 
-  // Quartas de final · 09 a 11/07
-  { id: 97, stage: "qf", date: "2026-07-09", time: "16:00", home: "Vencedor Jogo 89", away: "Vencedor Jogo 90", venue: "Gillette Stadium, Boston", score: null },
-  { id: 98, stage: "qf", date: "2026-07-10", time: "12:00", home: "Vencedor Jogo 93", away: "Vencedor Jogo 94", venue: "SoFi Stadium, Los Angeles", score: null },
-  { id: 99, stage: "qf", date: "2026-07-11", time: "17:00", home: "Vencedor Jogo 91", away: "Vencedor Jogo 92", venue: "Hard Rock Stadium, Miami", score: null },
-  { id: 100, stage: "qf", date: "2026-07-11", time: "20:00", home: "Vencedor Jogo 95", away: "Vencedor Jogo 96", venue: "Arrowhead Stadium, Kansas City", score: null },
+  // Quartas de final · 09 a 11/07 — times definidos pelas oitavas
+  { id: 97, stage: "qf", date: "2026-07-09", time: "16:00", home: "França", away: "Marrocos", venue: "Gillette Stadium, Boston", score: null },
+  { id: 98, stage: "qf", date: "2026-07-10", time: "12:00", home: "Espanha", away: "Bélgica", venue: "SoFi Stadium, Los Angeles", score: null },
+  { id: 99, stage: "qf", date: "2026-07-11", time: "17:00", home: "Noruega", away: "Inglaterra", venue: "Hard Rock Stadium, Miami", score: null },
+  { id: 100, stage: "qf", date: "2026-07-11", time: "20:00", home: "Argentina", away: "Suíça", venue: "Arrowhead Stadium, Kansas City", score: null },
 
   // Semifinais · 14 e 15/07
   { id: 101, stage: "sf", date: "2026-07-14", time: "14:00", home: "Vencedor Jogo 97", away: "Vencedor Jogo 98", venue: "AT&T Stadium, Dallas", score: null },
